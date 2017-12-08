@@ -8,6 +8,10 @@ properties:
 
 targets:
 
+  deps:
+    steps:
+    - $: ['go', 'get', 'github.com/grandcat/zeroconf']
+
   bin:
     doc: Generate binaries
     steps:
