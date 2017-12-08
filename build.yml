@@ -4,11 +4,7 @@ extends:
 - c4s4/build/buildir.yml
 
 properties:
-  BINARIES:
-  - xnode
-  - xstatus
-  - xclient
-  - xstack
+  BINARIES: [xnode, xstatus, xclient, xstack]
 
 targets:
 
