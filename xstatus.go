@@ -10,7 +10,7 @@ import (
 
 const (
 	TYPE = "_publisher._tcp"
-	DOMAINE = "local"
+	LOOKUP_DOMAIN = "local"
 	WAIT_TIME = 10
 )
 
@@ -28,7 +28,7 @@ func main() {
 	}(entries)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(WAIT_TIME))
 	defer cancel()
-	err = resolver.Browse(ctx, TYPE, DOMAINE, entries)
+	err = resolver.Browse(ctx, TYPE, LOOKUP_DOMAIN, entries)
 	if err != nil {
 		log.Fatalln("Failed to browse:", err.Error())
 	}
