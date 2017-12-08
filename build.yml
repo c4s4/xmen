@@ -1,0 +1,13 @@
+default: bin
+
+extends:
+- c4s4/build/buildir.yml
+
+targets:
+
+  bin:
+    steps:
+    - mkdir: '#{BUILD_DIR}'
+    - $: ['go', 'build', '-o', '#{BUILD_DIR}/xnode', 'xnode.go']
+    - $: ['go', 'build', '-o', '#{BUILD_DIR}/xclient', 'xclient.go']
+ 
