@@ -1,0 +1,14 @@
+port: 54631
+services:
+- desc:    'Chaîne de publication Dalloz sur Test'
+  name:    'dalloz-test'
+  type:    '_publisher._tcp'
+  command: ['sleep', '60']
+- desc:    'Chaîne de publication Dalloz sur Sbox1'
+  name:    'dalloz-sbox1'
+  type:    '_publisher._tcp'
+  command: ['sleep', '60']
+- desc:    'Chaîne de publication Dalloz sur Sbox4'
+  name:    'dalloz-sbox4'
+  type:    '_publisher._tcp'
+  command: ['sleep', '60']

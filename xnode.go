@@ -1,54 +1,75 @@
 package main
 
 import (
-	"flag"
-	"log"
+	"github.com/grandcat/zeroconf"
+	"gopkg.in/yaml.v2"
 	"os"
 	"os/signal"
 	"syscall"
-
-	"time"
-
-	"github.com/grandcat/zeroconf"
+	"io/ioutil"
+	"fmt"
 )
 
-var (
-	name     = flag.String("name", "GoZeroconfGo", "The name for the service.")
-	service  = flag.String("service", "_workstation._tcp", "Set the service type of the new service.")
-	domain   = flag.String("domain", "local.", "Set the network domain. Default should be fine.")
-	port     = flag.Int("port", 42424, "Set the port the service is listening to.")
-	waitTime = flag.Int("wait", 10, "Duration in [s] to publish service for.")
-)
+const DOMAIN = "local."
 
-func main() {
-	flag.Parse()
+type Service struct {
+	Desc    string
+	Name    string
+	Type    string
+	Command []string
+}
 
-	server, err := zeroconf.Register(*name, *service, *domain, *port, []string{"txtv=0", "lo=1", "la=2"}, nil)
-	if err != nil {
-		panic(err)
+type Configuration struct {
+	Services []Service
+	Port     int
+}
+
+func RegisterServices(configuration Configuration) ([]*zeroconf.Server, error) {
+	var servers []*zeroconf.Server
+	for _, service := range configuration.Services {
+		fmt.Printf("Registering service %s\n", service.Name)
+		server, err := zeroconf.Register(service.Name, service.Type, DOMAIN, configuration.Port, []string{""}, nil)
+		if err != nil {
+			panic(err)
+		}
+		servers = append(servers, server)
 	}
-	defer server.Shutdown()
-	log.Println("Published service:")
-	log.Println("- Name:", *name)
-	log.Println("- Type:", *service)
-	log.Println("- Domain:", *domain)
-	log.Println("- Port:", *port)
+	return servers, nil
+}
 
-	// Clean exit.
+func WaitExit(servers []*zeroconf.Server) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
-	// Timeout timer.
-	var tc <-chan time.Time
-	if *waitTime > 0 {
-		tc = time.After(time.Second * time.Duration(*waitTime))
-	}
-
 	select {
 	case <-sig:
-		// Exit by user
-	case <-tc:
-		// Exit by timeout
 	}
+	for _, server := range servers {
+		server.Shutdown()
+	}
+	fmt.Println("Shutting down.")
+}
 
-	log.Println("Shutting down.")
+func main() {
+	if len(os.Args) != 2 {
+		println("You must pass node configuration file on command line")
+		os.Exit(1)
+	}
+	file := os.Args[1]
+	var configuration Configuration
+    source, err := ioutil.ReadFile(file)
+    if err != nil {
+        fmt.Errorf("ERROR reading configuration file: %v", err)
+		os.Exit(2)
+    }
+    err = yaml.Unmarshal(source, &configuration)
+    if err != nil {
+        fmt.Errorf("ERROR parsing configuration file: %v", err)
+		os.Exit(2)
+    }
+    servers, err := RegisterServices(configuration)
+    if err != nil {
+    	fmt.Errorf("ERROR registering services: %v", err)
+    	os.Exit(3)
+	}
+	WaitExit(servers)
 }

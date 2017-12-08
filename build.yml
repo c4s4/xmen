@@ -1,13 +1,35 @@
-default: bin
+default: node
 
 extends:
 - c4s4/build/buildir.yml
 
+properties:
+  BINARIES:
+  - xnode
+  - xstatus
+  - xclient
+  - xstack
+
 targets:
 
   bin:
+    doc: Generate binaries
     steps:
     - mkdir: '#{BUILD_DIR}'
-    - $: ['go', 'build', '-o', '#{BUILD_DIR}/xnode', 'xnode.go']
-    - $: ['go', 'build', '-o', '#{BUILD_DIR}/xclient', 'xclient.go']
- 
+    - for: 'binary'
+      in:  'BINARIES'
+      do:
+      - print: 'Building binary #{binary}'
+      - $: ['go', 'build', '-o', '#{BUILD_DIR}/#{binary}', '#{binary}.go']
+
+  node:
+    doc: Start node
+    depends: bin
+    steps:
+    - $: ['build/xnode', 'xnode.yml']
+
+  status:
+    doc: Start status
+    depends: bin
+    steps:
+    - $: ['build/xstatus']
