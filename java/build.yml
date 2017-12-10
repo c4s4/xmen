@@ -1,0 +1,33 @@
+default: java
+
+extends:
+- 'c4s4/build/buildir.yml'
+
+properties:
+  JAVA_SRC:  'src'
+  CLASS_DIR: '#{BUILD_DIR}/classes'
+  JAVA_MAIN: 'casa.Main'
+
+targets:
+
+  compile:
+    doc: 'Compile java source files'
+    steps:
+    - classpath:    'classpath'
+      dependencies: 'dependencies.yml'
+      repositories: 'http://central.maven.org/maven2'
+    - javac:  '**/*.java'
+      cp:     '#{classpath}'
+      source: '#{JAVA_SRC}'
+      dest:   '#{CLASS_DIR}'
+
+  java:
+    doc: 'Run java program'
+    depends: compile
+    steps:
+    - classpath: 'classpath'
+      classes:   '#{CLASS_DIR}'
+      dependencies: 'dependencies.yml'
+      repositories: 'http://central.maven.org/maven2'
+    - java: '#{JAVA_MAIN}'
+      cp:   '#{classpath}'

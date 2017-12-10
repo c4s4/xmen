@@ -8,9 +8,10 @@ import (
 	"syscall"
 	"io/ioutil"
 	"fmt"
+	"time"
 )
 
-const DOMAIN = "local."
+const DOMAIN = "local"
 
 type Service struct {
 	Desc    string
@@ -46,6 +47,7 @@ func WaitExit(servers []*zeroconf.Server) {
 	for _, server := range servers {
 		server.Shutdown()
 	}
+	time.Sleep(time.Duration(10)*time.Second)
 	fmt.Println("Shutting down.")
 }
 

@@ -2,36 +2,72 @@ package main
 
 import (
 	"context"
-	"log"
 	"time"
-
 	"github.com/grandcat/zeroconf"
+	"sync"
+	"fmt"
+	"sort"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 const (
 	TYPE = "_publisher._tcp"
-	LOOKUP_DOMAIN = "local"
-	WAIT_TIME = 10
+	DOMAIN = "local"
+	WAIT_TIME = 500000
 )
 
-func main() {
+type PublisherList struct {
+	sync.RWMutex
+	Publishers []*zeroconf.ServiceEntry
+}
+
+func (pl *PublisherList) Update(entries chan *zeroconf.ServiceEntry) {
+	pl.Lock()
+	defer pl.Unlock()
+	var publishers []*zeroconf.ServiceEntry
+	sort.Slice(publishers, func(i, j int) bool {
+		return publishers[i].ServiceInstanceName() < publishers[j].ServiceInstanceName()
+	})
+	pl.Publishers = publishers
+}
+
+func BrowsePublishers() (context.Context, error) {
 	resolver, err := zeroconf.NewResolver(nil)
 	if err != nil {
-		log.Fatalln("Failed to initialize resolver:", err.Error())
+		return nil, fmt.Errorf("failed to initialize resolver: %v", err)
 	}
 	entries := make(chan *zeroconf.ServiceEntry)
 	go func(results <-chan *zeroconf.ServiceEntry) {
 		for entry := range results {
-			log.Println(entry)
+			fmt.Println(entry)
 		}
-		log.Println("No more entries.")
+		fmt.Println("No more entries.")
 	}(entries)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(WAIT_TIME))
-	defer cancel()
-	err = resolver.Browse(ctx, TYPE, LOOKUP_DOMAIN, entries)
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*time.Duration(WAIT_TIME))
+	err = resolver.Browse(ctx, TYPE, DOMAIN, entries)
 	if err != nil {
-		log.Fatalln("Failed to browse:", err.Error())
+		return nil, fmt.Errorf("failed to browse: %v", err)
 	}
-	<-ctx.Done()
-	time.Sleep(1 * time.Second)
+	return ctx, nil
+}
+
+func WaitExit(ctx context.Context) {
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	select {
+	case <-sig:
+	}
+	ctx.Done()
+	fmt.Println("Shutting down.")
+}
+
+func main() {
+	ctx, err := BrowsePublishers()
+	if err != nil {
+		fmt.Printf("error browsing publishers: %v", err)
+		os.Exit(1)
+	}
+	WaitExit(ctx)
 }

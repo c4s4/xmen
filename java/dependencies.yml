@@ -1,0 +1,9 @@
+- group:    org.jmdns
+  artifact: jmdns
+  version:  3.5.3
+- group:    org.slf4j
+  artifact: slf4j-api
+  version:  1.7.25
+- group:    org.slf4j
+  artifact: slf4j-simple
+  version:  1.7.25
