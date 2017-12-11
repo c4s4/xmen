@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"time"
 	"github.com/grandcat/zeroconf"
 	"sync"
 	"fmt"
@@ -15,59 +14,61 @@ import (
 const (
 	TYPE = "_publisher._tcp"
 	DOMAIN = "local"
-	WAIT_TIME = 500000
 )
+
+var publisherList PublisherList
 
 type PublisherList struct {
 	sync.RWMutex
 	Publishers []*zeroconf.ServiceEntry
 }
 
-func (pl *PublisherList) Update(entries chan *zeroconf.ServiceEntry) {
+func (pl *PublisherList) AddPublisher(publisher *zeroconf.ServiceEntry) {
 	pl.Lock()
 	defer pl.Unlock()
-	var publishers []*zeroconf.ServiceEntry
-	sort.Slice(publishers, func(i, j int) bool {
-		return publishers[i].ServiceInstanceName() < publishers[j].ServiceInstanceName()
+	pl.Publishers = append(pl.Publishers, publisher)
+	sort.Slice(pl.Publishers, func(i, j int) bool {
+		return pl.Publishers[i].ServiceInstanceName() < pl.Publishers[j].ServiceInstanceName()
 	})
-	pl.Publishers = publishers
 }
 
-func BrowsePublishers() (context.Context, error) {
+func ProducePublishers() (chan *zeroconf.ServiceEntry, func(), error) {
 	resolver, err := zeroconf.NewResolver(nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize resolver: %v", err)
+		return nil, nil, fmt.Errorf("failed to initialize resolver: %v", err)
 	}
-	entries := make(chan *zeroconf.ServiceEntry)
-	go func(results <-chan *zeroconf.ServiceEntry) {
-		for entry := range results {
-			fmt.Println(entry)
-		}
-		fmt.Println("No more entries.")
-	}(entries)
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*time.Duration(WAIT_TIME))
-	err = resolver.Browse(ctx, TYPE, DOMAIN, entries)
+	publisherChan := make(chan *zeroconf.ServiceEntry)
+	context, cancel := context.WithCancel(context.Background())
+	err = resolver.Browse(context, TYPE, DOMAIN, publisherChan)
 	if err != nil {
-		return nil, fmt.Errorf("failed to browse: %v", err)
+		return nil, nil, fmt.Errorf("failed to browse: %v", err)
 	}
-	return ctx, nil
+	return publisherChan, cancel, nil
 }
 
-func WaitExit(ctx context.Context) {
+func ConsumePublishers(publisherChan <-chan *zeroconf.ServiceEntry) {
+	for publisher := range publisherChan {
+		publisherList.AddPublisher(publisher)
+		fmt.Printf("Added publisher %v\n", publisher)
+	}
+}
+
+func WaitExit() {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	select {
 	case <-sig:
 	}
-	ctx.Done()
-	fmt.Println("Shutting down.")
 }
 
 func main() {
-	ctx, err := BrowsePublishers()
+	publisherChan, cancel, err := ProducePublishers()
 	if err != nil {
 		fmt.Printf("error browsing publishers: %v", err)
 		os.Exit(1)
 	}
-	WaitExit(ctx)
+	go ConsumePublishers(publisherChan)
+	WaitExit()
+	cancel()
+	fmt.Println("Shutting down")
 }
